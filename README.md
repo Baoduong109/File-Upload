@@ -15,7 +15,7 @@ Ta thấy Successfully uploaded có nghĩa server hiện tại không hề chặ
 
 <img width="700" alt="Ảnh chụp Màn hình 2024-10-28 lúc 00 59 31" src="https://github.com/user-attachments/assets/daa38e93-f7e0-4aa9-b008-414b202a2cd8">
 
-Như đã thấy, server đã hiển thị nôi dung của ```phpinfo()```. Để RCE, ta tiến hành upload 1 web shell với nội dung ```<?php system($_GET['cmd']); ?>```. Sau khi upload thành công file shell vừa tạo, ta truy cập vào đường dẫn lưu trữ file kèm theo payload sau: ```?cmd=ls /``` Để có thể đọc được các file trong thư mục root.
+Như đã thấy, server đã hiển thị nôi dung của ```phpinfo()```. Để RCE, ta tiến hành upload 1 web shell với nội dung ```<?php system($_GET['cmd']); ?>```. Sau khi upload thành công file shell vừa tạo, ta truy cập vào đường dẫn lưu trữ file kèm theo payload sau: ```?cmd=ls /```. Để có thể đọc được các file trong thư mục root.
 
 <img width="786" alt="Ảnh chụp Màn hình 2024-10-28 lúc 01 01 16" src="https://github.com/user-attachments/assets/0cd9c407-cf22-4a99-be85-2ea9948060cc">
 
@@ -41,7 +41,7 @@ Kết quả là không thành công, có vẻ như anh dev đã bắt đầu ng�
 
 Chú ý đến dòng 19 và 20, ta thấy đoạn code đang kiểm tra phần tử đầu tiên sau dấu chấm. Nếu là ```php``` thì lập tức kết thúc chương trình và hiển thị "Hack detected".
 
-Lúc này có 2 giả thuyết được đặt ra là sẽ ra sao nếu ta đặt tên file ```info.abc.php```(abc là đuôi file bất kì) vì đoạn code trên chỉ kiểm tra phần tử đâu tiên sau dấu chấm. Hoặc là ngoài ```.php``` ra thì ```mod-php``` có xử lý đuôi file nào khác tương tự ```php``` hay không.
+Lúc này có 2 giả thuyết được đặt ra là sẽ ra sao nếu ta đặt tên file ```info.abc.php```(abc là đuôi file bất kì) vì đoạn code trên chỉ kiểm tra phần tử đầu tiên sau dấu chấm. Hoặc là ngoài ```.php``` ra thì ```mod-php``` có xử lý đuôi file nào khác tương tự ```php``` hay không.
 
 Thực hiện giả thuyết đầu tiên, truy cập vào Burp Suite, vào ```Proxy```, chọn gói tin có method là ```POST```, chuột phải và chọn ```Send to Repeater```. 
 
@@ -133,3 +133,54 @@ Bây giờ có thể upload 1 file shell với đuôi là ```.txt``` và có th�
 
 ## Level 5:
 
+<img width="1057" alt="Ảnh chụp Màn hình 2024-10-28 lúc 01 19 16" src="https://github.com/user-attachments/assets/ddf57c4c-9a12-4f21-90e4-cd9e72343029">
+
+<img width="1422" alt="Ảnh chụp Màn hình 2024-10-28 lúc 12 12 21" src="https://github.com/user-attachments/assets/bd281339-d850-41e3-af48-3bdf2f64aca9">
+
+Dựa vào ```$_FILE["file"]["type"]``` ở dòng 18, ta thấy anh dev đang đang kiểm tra xem ```Content-Type``` có bằng với các ```Content-Type``` mà anh dev đề ra hay không.
+
+Nhưng vì ```Content-Type``` là 1 ```header``` trong ```HTTP Request``` nên ta có thể dễ dàng thay đổi giá trị của nó nó trong Burp Suite.
+
+Upload file ```phpinfo()``` và thay đổi ```Content-Type``` của nó thành ```image/png```.
+
+<img width="1425" alt="Ảnh chụp Màn hình 2024-10-28 lúc 01 20 50" src="https://github.com/user-attachments/assets/93b38471-0c07-434c-982f-34d0d0ed173d">
+
+Truy cập vào đường dẫn file và sẽ thấy server trả về kết quả của ```phpinfo()```.
+
+## Level 6:
+
+Các loại file khác nhau sẽ được xác định bằng một vài byte đầu tiên của file, gọi là ```file signature```(chữ ký đầu tệp).
+
+<img width="1177" alt="Ảnh chụp Màn hình 2024-10-28 lúc 01 25 48" src="https://github.com/user-attachments/assets/109b5db4-3e76-4855-99dc-9167999293ba">
+
+Ở dòng 18, ```finfo_file``` sẽ so sánh chữ ký đầu tệp của các file trong magic database để kết luận đó là tập tin gì. Magic database là nơi chứa tất cả chữ ký đầu tệp của các file tương ứng.
+
+Server lấy file signature bằng ```finfo_file``` và kiểm tra với ```whitelist("image/jpeg", "image/png", "image/gif")```.Vậy nếu ta thay đổi chữ ký đầu tệp của file ```php``` thì sao?
+
+Exploit level này bằng các up file có nội dung ```<magic_byte><php_code>```
+
+<img width="424" alt="Ảnh chụp Màn hình 2024-10-28 lúc 12 39 40" src="https://github.com/user-attachments/assets/9dfb8f42-3df7-4cfc-8a97-cc4a711f4b6e">
+
+Dựa vào bảng trên, payload của level này sẽ là ```GIF89a;<?php phpinfo(); ?>```
+
+<img width="1440" alt="Ảnh chụp Màn hình 2024-10-28 lúc 01 26 49" src="https://github.com/user-attachments/assets/1f8c3ead-33f4-4457-bf7e-4bb1268db872">
+
+Thành công upload file ```phpinfo()``` và server sẽ trả về thông tin ```phpinfo()```.
+
+<img width="1440" alt="Ảnh chụp Màn hình 2024-10-28 lúc 01 27 05" src="https://github.com/user-attachments/assets/ba864118-064a-4693-8b91-b241ce642fc4">
+
+Tương tự, có thể upload file shell và RCE.
+
+## Một số ưu và nhược điểm khi sử dụng Blacklist và Whitelist
+
+## Blacklist:
+
+Ưu điểm: Tiện lợi, cho phép upload được nhiều kiểu file.
+
+Nhược điểm: Dễ bỏ sót trường hợp nào đó, những thứ ta không biết nhiều hơn những thứ mà ta biết.
+
+## Whitelist
+
+Ưu điểm: Dễ dàng kiểm soát được file nào được phép upload.
+
+Nhược điểm: Đôi lúc giới hạn các tính năng của chương trình.
